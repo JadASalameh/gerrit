@@ -388,6 +388,10 @@ suite('gr-settings-view tests', () => {
     await element.updateComplete;
     assert.isFalse(element.showHttpAuth());
 
+    element.serverConfig.auth.accepts_auth_tokens = true;
+    await element.updateComplete;
+    assert.isTrue(element.showHttpAuth());
+
     element.serverConfig = undefined;
     await element.updateComplete;
     assert.isFalse(element.showHttpAuth());

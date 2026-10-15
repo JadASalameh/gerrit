@@ -76,6 +76,7 @@ public class AuthConfig {
   private final Duration maxAuthTokenLifetime;
   private final int maxAuthTokensPerAccount;
   private final boolean httpPasswordFallbackEnabled;
+  private final boolean oauthAcceptsAuthTokens;
 
   @Inject
   AuthConfig(@GerritServerConfig Config cfg) throws XsrfException {
@@ -115,6 +116,7 @@ public class AuthConfig {
         (int)
             ConfigUtil.getTimeUnit(cfg, "auth", null, "externalIdsRefExpiry", 0, TimeUnit.SECONDS);
     httpPasswordFallbackEnabled = cfg.getBoolean("auth", "httpPasswordFallbackEnabled", true);
+    oauthAcceptsAuthTokens = cfg.getBoolean("auth", "oauthAcceptsAuthTokens", false);
 
     if (gitBasicAuthPolicy == GitBasicAuthPolicy.HTTP_LDAP
         && authType != AuthType.LDAP
@@ -278,6 +280,15 @@ public class AuthConfig {
 
   public GitBasicAuthPolicy getGitBasicAuthPolicy() {
     return gitBasicAuthPolicy;
+  }
+
+  /** Whether Git over HTTP and REST API requests can authenticate with an authentication token. */
+  public boolean acceptsAuthTokens() {
+    return switch (gitBasicAuthPolicy) {
+      case HTTP, HTTP_LDAP -> true;
+      case OAUTH -> oauthAcceptsAuthTokens;
+      case LDAP -> false;
+    };
   }
 
   /** Whether contributor agreements are used. */

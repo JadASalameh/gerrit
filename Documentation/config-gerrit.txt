@@ -702,6 +702,21 @@ every single call would trigger a full LDAP authentication and groups
 resolution which could introduce a noticeable latency on the overall execution
 and produce unwanted load to the LDAP server.
 
+[[auth.oauthAcceptsAuthTokens]]auth.oauthAcceptsAuthTokens::
++
+Whether the OAuth login provider named by
+link:#auth.gitOAuthProvider[`auth.gitOAuthProvider`] also accepts
+link:user-upload.html#http[authentication tokens], so that users can manage
+them from the settings page. Gerrit does not check the tokens itself: it only
+shows the HTTP Credentials section of the settings page and reports
+`accepts_auth_tokens` in the link:rest-api-config.html#auth-info[server
+info]. Only set it when the provider calls the token verifier.
++
+Only used when link:#auth.gitBasicAuthPolicy[`auth.gitBasicAuthPolicy`] is
+`OAUTH`.
++
+By default `false`.
+
 [[auth.maxAuthTokenLifetime]]auth.maxAuthTokenLifetime::
 +
 The maximum lifetime allowed for an authentication token. The minimum time is

@@ -700,6 +700,9 @@ export class GrSettingsView extends LitElement {
 
   // private but used in test
   showHttpAuth() {
+    if (this.serverConfig?.auth?.accepts_auth_tokens) {
+      return true;
+    }
     if (this.serverConfig?.auth?.git_basic_auth_policy) {
       return HTTP_AUTH.includes(
         this.serverConfig.auth.git_basic_auth_policy.toUpperCase()

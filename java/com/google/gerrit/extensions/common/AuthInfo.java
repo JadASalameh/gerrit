@@ -121,6 +121,14 @@ public class AuthInfo {
   public GitBasicAuthPolicy gitBasicAuthPolicy;
 
   /**
+   * Whether Git over HTTP and REST API requests can authenticate with an authentication token.
+   *
+   * <p>True when {@code auth.gitBasicAuthPolicy} is {@code HTTP} or {@code HTTP_LDAP}, or when it
+   * is {@code OAUTH} and {@code auth.oauthAcceptsAuthTokens} is set.
+   */
+  public Boolean acceptsAuthTokens;
+
+  /**
    * The maximum lifetime allowed for authentication tokens in minutes.
    *
    * <p>The value of the {@code auth.maxAuthTokenLifetime} parameter in {@code gerrit.config}.
