@@ -15,6 +15,8 @@
 package com.google.gerrit.httpd;
 
 import static com.google.gerrit.httpd.ProjectBasicAuthFilter.authenticationFailedMsg;
+import static com.google.gerrit.server.account.externalids.ExternalId.SCHEME_GERRIT;
+import static com.google.gerrit.server.account.externalids.ExternalId.SCHEME_USERNAME;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static javax.servlet.http.HttpServletResponse.SC_UNAUTHORIZED;
 
@@ -171,13 +173,26 @@ class ProjectOAuthFilter implements Filter {
           who.get().externalIds().stream()
               .filter(e -> e.key().scheme().equals(authInfo.exportName))
               .findAny();
+      String email = account.preferredEmail();
+      if (extId.isEmpty()) {
+        // An account first created by LDAP or HTTP authentication keeps its gerrit:<username>
+        // identity when the site moves to OAuth, and one created through the REST API only has
+        // username:<username>; authenticate through those rather than an external:<username>
+        // identity no account has, which would try to create a new one.
+        extId = localIdentity(who.get(), authInfo.username);
+        if (extId.isPresent()) {
+          // A login copies the request's email onto the identity when they differ: send the
+          // identity's own, as the preferred email need not be it.
+          email = extId.get().email();
+        }
+      }
       if (extId.isPresent()) {
         authRequest = authRequestFactory.create(extId.get().key());
         authRequest.setUserName(authInfo.username);
       } else {
         authRequest = authRequestFactory.createForExternalUser(authInfo.username);
       }
-      authRequest.setEmailAddress(account.preferredEmail());
+      authRequest.setEmailAddress(email);
       authRequest.setDisplayName(account.fullName());
       authRequest.setPassword(authInfo.tokenOrSecret);
     }
@@ -293,6 +308,27 @@ class ProjectOAuthFilter implements Filter {
       return null;
     }
     return new AuthInfo(username, token, pluginName, exportName);
+  }
+
+  /**
+   * The account's {@code gerrit:} identity, preferring the one named like {@code username}, else
+   * its {@code username:} identity. A {@code gerrit:} identity keeps the case the account was first
+   * created with, which need not match the case typed now.
+   */
+  private static Optional<ExternalId> localIdentity(AccountState who, String username) {
+    Optional<ExternalId> named =
+        who.externalIds().stream()
+            .filter(e -> e.key().isScheme(SCHEME_GERRIT) && e.key().id().equalsIgnoreCase(username))
+            .findAny();
+    if (named.isPresent()) {
+      return named;
+    }
+    Optional<ExternalId> gerrit =
+        who.externalIds().stream().filter(e -> e.key().isScheme(SCHEME_GERRIT)).findAny();
+    if (gerrit.isPresent()) {
+      return gerrit;
+    }
+    return who.externalIds().stream().filter(e -> e.key().isScheme(SCHEME_USERNAME)).findAny();
   }
 
   private static String encoding(HttpServletRequest req) {

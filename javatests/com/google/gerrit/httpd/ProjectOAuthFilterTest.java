@@ -302,12 +302,113 @@ public class ProjectOAuthFilterTest {
     assertThat(res.getStatus()).isEqualTo(HttpServletResponse.SC_UNAUTHORIZED);
   }
 
+  @Test
+  public void shouldAuthenticateLdapCreatedAccountThroughItsGerritIdentity() throws Exception {
+    // First signed in through LDAP as "JohnDoe": the identity keeps that case and the directory
+    // email, while the user later picked another preferred email.
+    initAccount(
+        "john.doe@example.com",
+        ImmutableSet.of(
+            extIdFactory.createWithEmail(
+                extIdKeyFactory.create("gerrit", "JohnDoe"), AUTH_ACCOUNT_ID, "jdoe@example.com"),
+            extIdFactory.create("username", AUTH_USER, AUTH_ACCOUNT_ID)));
+    initWebSession();
+    requestBasicAuth(req, OAUTH_TOKEN);
+    res.setStatus(HttpServletResponse.SC_OK);
+
+    ProjectOAuthFilter oAuthFilter =
+        new ProjectOAuthFilter(
+            webSessionItem,
+            pluginsProvider,
+            accountCache,
+            accountManager,
+            gerritConfig,
+            authRequestFactory);
+
+    oAuthFilter.init(null);
+    oAuthFilter.doFilter(req, res, chain);
+
+    AuthRequest expected = authRequestFactory.create(extIdKeyFactory.create("gerrit", "JohnDoe"));
+    expected.setUserName(AUTH_USER);
+    expected.setEmailAddress("jdoe@example.com");
+    expected.setPassword(OAUTH_TOKEN);
+    expected.setAuthPlugin("oauth");
+    expected.setAuthProvider("test");
+
+    verify(accountManager).authenticate(eq(expected));
+    verify(chain).doFilter(eq(req), any());
+    assertThat(res.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
+  }
+
+  @Test
+  public void shouldAuthenticateRestCreatedAccountThroughItsUsernameIdentity() throws Exception {
+    initAccount(
+        "svc@example.com",
+        ImmutableSet.of(extIdFactory.create("username", AUTH_USER, AUTH_ACCOUNT_ID)));
+    initWebSession();
+    requestBasicAuth(req, OAUTH_TOKEN);
+    res.setStatus(HttpServletResponse.SC_OK);
+
+    ProjectOAuthFilter oAuthFilter =
+        new ProjectOAuthFilter(
+            webSessionItem,
+            pluginsProvider,
+            accountCache,
+            accountManager,
+            gerritConfig,
+            authRequestFactory);
+
+    oAuthFilter.init(null);
+    oAuthFilter.doFilter(req, res, chain);
+
+    AuthRequest expected = authRequestFactory.create(extIdKeyFactory.create("username", AUTH_USER));
+    expected.setUserName(AUTH_USER);
+    expected.setPassword(OAUTH_TOKEN);
+    expected.setAuthPlugin("oauth");
+    expected.setAuthProvider("test");
+
+    verify(accountManager).authenticate(eq(expected));
+    verify(chain).doFilter(eq(req), any());
+  }
+
+  @Test
+  public void shouldUseExternalIdentityWhenAccountHasNoLocalIdentity() throws Exception {
+    initAccount(ImmutableSet.of(extIdFactory.create("mailto", "j@example.com", AUTH_ACCOUNT_ID)));
+    initWebSession();
+    requestBasicAuth(req, OAUTH_TOKEN);
+    res.setStatus(HttpServletResponse.SC_OK);
+
+    ProjectOAuthFilter oAuthFilter =
+        new ProjectOAuthFilter(
+            webSessionItem,
+            pluginsProvider,
+            accountCache,
+            accountManager,
+            gerritConfig,
+            authRequestFactory);
+
+    oAuthFilter.init(null);
+    oAuthFilter.doFilter(req, res, chain);
+
+    AuthRequest expected = authRequestFactory.createForExternalUser(AUTH_USER);
+    expected.setPassword(OAUTH_TOKEN);
+    expected.setAuthPlugin("oauth");
+    expected.setAuthProvider("test");
+
+    verify(accountManager).authenticate(eq(expected));
+  }
+
   private void initAccount() throws Exception {
     initAccount(ImmutableSet.of(extIdFactory.create("test", AUTH_USER, AUTH_ACCOUNT_ID)));
   }
 
   private void initAccount(Collection<ExternalId> extIds) throws Exception {
-    Account account = Account.builder(AUTH_ACCOUNT_ID, Instant.now()).build();
+    initAccount(null, extIds);
+  }
+
+  private void initAccount(String preferredEmail, Collection<ExternalId> extIds) throws Exception {
+    Account account =
+        Account.builder(AUTH_ACCOUNT_ID, Instant.now()).setPreferredEmail(preferredEmail).build();
     AccountState accountState = AccountState.forAccount(account, extIds);
     doReturn(Optional.of(accountState)).when(accountCache).getByUsername(AUTH_USER);
   }
