@@ -29,6 +29,18 @@ public interface OAuthServiceProvider {
   String getAuthorizationUrl();
 
   /**
+   * Whether Gerrit adds a PKCE (RFC 7636) S256 challenge to the authorization URL. Gerrit keeps the
+   * matching code verifier for the duration of the login and passes it to {@link
+   * #getAccessToken(OAuthVerifier)} through {@link OAuthVerifier#getCodeVerifier()}; the provider
+   * must send it with the token request.
+   *
+   * @return true to have Gerrit run the PKCE exchange for this provider
+   */
+  default boolean usesPkce() {
+    return false;
+  }
+
+  /**
    * Retrieve the access token
    *
    * @param verifier verifier code

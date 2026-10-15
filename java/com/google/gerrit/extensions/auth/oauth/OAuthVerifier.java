@@ -14,16 +14,38 @@
 
 package com.google.gerrit.extensions.auth.oauth;
 
+import com.google.gerrit.common.Nullable;
+
 /* OAuth verifier */
 public class OAuthVerifier {
 
   private final String value;
+  @Nullable private final String codeVerifier;
 
   public OAuthVerifier(String value) {
+    this(value, null);
+  }
+
+  /**
+   * @param value the authorization code returned by the provider
+   * @param codeVerifier the PKCE code verifier (RFC 7636) whose challenge was sent with the
+   *     authorization request, or null when the provider does not use PKCE
+   */
+  public OAuthVerifier(String value, @Nullable String codeVerifier) {
     this.value = value;
+    this.codeVerifier = codeVerifier;
   }
 
   public String getValue() {
     return value;
+  }
+
+  /**
+   * Returns the PKCE code verifier to send with the token request, or null. Set only for providers
+   * whose {@link OAuthServiceProvider#usesPkce()} is true.
+   */
+  @Nullable
+  public String getCodeVerifier() {
+    return codeVerifier;
   }
 }
