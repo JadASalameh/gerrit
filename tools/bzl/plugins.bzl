@@ -14,6 +14,7 @@ CORE_PLUGINS = [
 ]
 
 CUSTOM_PLUGINS = [
+    "oidc",
     "rename-project",
 ]
 
